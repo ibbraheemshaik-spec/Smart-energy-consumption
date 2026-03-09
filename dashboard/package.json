@@ -1,0 +1,14 @@
+{
+  "name": "iot-dashboard",
+  "version": "1.0.0",
+  "description": "Real-time IoT dashboard for ESP32 AC Voltage/Current Monitor",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "serialport": "^12.0.0",
+    "ws": "^8.16.0"
+  }
+}

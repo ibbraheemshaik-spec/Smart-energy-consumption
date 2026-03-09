@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 AC Monitor – Live Dashboard</title>
+  <meta name="description" content="Real-time voltage, current and power monitoring dashboard for the ESP32 AC Monitor project." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Animated background blobs ── -->
+  <div class="bg-blob blob1"></div>
+  <div class="bg-blob blob2"></div>
+  <div class="bg-blob blob3"></div>
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <h1 class="app-title">AC Power Monitor</h1>
+        <p class="app-sub">ESP32 · Real-Time Dashboard</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+      </div>
+      <div class="last-updated" id="lastUpdated">—</div>
+    </div>
+  </header>
+
+  <!-- ── Main layout ── -->
+  <main class="layout">
+
+    <!-- ── Metric cards ── -->
+    <section class="cards-row">
+
+      <div class="card card--voltage" id="cardVoltage">
+        <div class="card-icon">🔌</div>
+        <div class="card-label">Voltage</div>
+        <div class="card-value">
+          <span class="metric" id="voltageVal">—</span>
+          <span class="unit">V</span>
+        </div>
+        <div class="card-sub">RMS · Pin 35</div>
+        <div class="card-bar"><div class="card-bar-fill" id="voltBar"></div></div>
+        <!-- Blynk mirror label -->
+        <div class="blynk-badge">Blynk V0</div>
+      </div>
+
+      <div class="card card--current" id="cardCurrent">
+        <div class="card-icon">⚡</div>
+        <div class="card-label">Current</div>
+        <div class="card-value">
+          <span class="metric" id="currentVal">—</span>
+          <span class="unit">A</span>
+        </div>
+        <div class="card-sub">RMS · Pin 34</div>
+        <div class="card-bar"><div class="card-bar-fill" id="currBar"></div></div>
+        <div class="blynk-badge">Blynk V1</div>
+      </div>
+
+      <div class="card card--power" id="cardPower">
+        <div class="card-icon">💡</div>
+        <div class="card-label">Power</div>
+        <div class="card-value">
+          <span class="metric" id="powerVal">—</span>
+          <span class="unit">W</span>
+        </div>
+        <div class="card-sub">V × I · Apparent</div>
+        <div class="card-bar"><div class="card-bar-fill" id="powBar"></div></div>
+        <div class="blynk-badge">Blynk V2</div>
+      </div>
+
+      <div class="card card--status" id="cardStatus">
+        <div class="card-icon">🤖</div>
+        <div class="card-label">Usage Status</div>
+        <div class="card-value">
+          <span class="metric" id="mlStatusVal" style="font-size: 2.2rem; color: #a5b4fc;">—</span>
+        </div>
+        <div class="card-sub">ML Verification</div>
+        <div class="card-bar"><div class="card-bar-fill" id="statusBar" style="background: #6366f1; width: 100%;"></div></div>
+        <div class="blynk-badge">Realtime ML</div>
+      </div>
+
+    </section>
+
+    <!-- ── Emergency Alert Box ── -->
+    <div id="emergencyAlert" style="display: none; background: rgba(239, 68, 68, 0.9); border: 2px solid #fca5a5; padding: 15px 20px; border-radius: var(--radius); margin-bottom: 20px; text-align: center; backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(239, 68, 68, 0.5); animation: pulseAlert 1.5s infinite;">
+      <h2 style="color: #fff; font-size: 1.5rem; margin-bottom: 5px;">⚠️ HIGH USAGE DETECTED!</h2>
+      <p style="color: #fee2e2; font-size: 1rem; font-weight: 500;">Threshold exceeded. Please turn off appliances immediately to prevent damage.</p>
+    </div>
+
+    <!-- ── Chart + Serial panel ── -->
+    <section class="bottom-row">
+
+      <div class="chart-panel glass-panel">
+        <div class="panel-header">
+          <span class="panel-title">📈 Live Chart</span>
+          <div class="chart-legend">
+            <span class="legend-dot" style="background:#60a5fa"></span><span>Voltage (V)</span>
+            <span class="legend-dot" style="background:#34d399"></span><span>Current (A)</span>
+            <span class="legend-dot" style="background:#fbbf24"></span><span>Power (W)</span>
+          </div>
+          <button class="btn-clear" id="clearChart">Clear</button>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="liveChart"></canvas>
+        </div>
+      </div>
+
+      <div class="serial-panel glass-panel">
+        <div class="panel-header">
+          <span class="panel-title">🖥️ Serial Monitor</span>
+          <span class="serial-baud">115200 baud</span>
+          <button class="btn-clear" id="clearSerial">Clear</button>
+        </div>
+        <div class="serial-log" id="serialLog">
+          <div class="serial-placeholder">Waiting for data from ESP32…</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── LCD preview ── -->
+    <section class="lcd-section">
+      <div class="lcd-label">LCD Display Preview (16×2)</div>
+      <div class="lcd-screen">
+        <div class="lcd-row" id="lcdRow0">AC Monitor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+        <div class="lcd-row" id="lcdRow1">Starting...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
